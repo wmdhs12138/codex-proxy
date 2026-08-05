@@ -16,6 +16,7 @@ tmp/
 !.claude/skills/
 native/target/
 native/codex-tls.linux-*.node
+native/codex-tls.android-*.node
 
 # Maintenance scripts (private)
 scripts/manual-test/
