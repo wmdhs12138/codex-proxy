@@ -613,6 +613,7 @@ On first startup, if `data/local.yaml` is missing, Codex Proxy creates it with `
 | `/v1/responses/compact` | POST | Codex compact response proxy |
 | `/v1/messages` | POST | Anthropic format chat completions |
 | `/v1/models` | GET | List available models |
+| `/v1/quota` | GET | Compact weekly quota (for example `81% ↻2d3h`; use `?style=verbose&lang=en` for verbose English) |
 | `/v1/models/catalog` | GET | Full model catalog for the dashboard |
 | `/v1/models/:modelId/info` | GET | Reasoning and metadata for one model |
 | `/v1beta/models` | GET | Gemini-format model list |

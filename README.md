@@ -754,6 +754,7 @@ curl -N http://localhost:8080/official-agent/threads/{threadId}/turns \
 | `/v1/responses/compact` | POST | Codex compact 响应代理 |
 | `/v1/messages` | POST | Anthropic 格式聊天补全 |
 | `/v1/models` | GET | 可用模型列表 |
+| `/v1/quota` | GET | 紧凑周额度（如 `81% ↻2d3h`；`?style=verbose&lang=en` 可取英文长格式） |
 | `/v1/models/catalog` | GET | Dashboard 使用的完整模型目录 |
 | `/v1/models/:modelId/info` | GET | 单个模型的推理等级等详情 |
 | `/v1beta/models` | GET | Gemini 格式模型列表 |

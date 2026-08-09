@@ -49,6 +49,7 @@ import { createEmbeddingsRoutes } from "./routes/embeddings.js";
 import { createRuntimeUpstreamRouter } from "./proxy/upstream-router-bootstrap.js";
 import { startOllamaBridge, stopOllamaBridge } from "./ollama/server.js";
 import { createOfficialAgentRoutes } from "./routes/official-agent.js";
+import { createQuotaRoutes } from "./routes/quota.js";
 import { installUncaughtErrorHandlers } from "./logs/error-log.js";
 import { awaitServerListening } from "./utils/await-listening.js";
 
@@ -191,6 +192,7 @@ export async function startServer(options?: StartOptions): Promise<ServerHandle>
   app.route("/", messagesRoutes);
   app.route("/", geminiRoutes);
   app.route("/", responsesRoutes);
+  app.route("/", createQuotaRoutes(accountPool));
   app.route("/", createOfficialAgentRoutes());
   app.route("/", proxyRoutes);
   app.route("/", createModelRoutes(apiKeyPool));
