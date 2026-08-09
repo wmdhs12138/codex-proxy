@@ -77,7 +77,7 @@ export function createProxyRoutes(proxyPool: ProxyPool, accountPool: AccountPool
 
     const name = body.name?.trim() || stripCredentials(url);
     const id = proxyPool.add(name, url);
-    const proxy = proxyPool.getById(id);
+    const proxy = proxyPool.getByIdMasked(id);
 
     // Restart health check timer if this is the first proxy
     proxyPool.startHealthCheckTimer();
@@ -107,7 +107,7 @@ export function createProxyRoutes(proxyPool: ProxyPool, accountPool: AccountPool
       return c.json({ error: "Proxy not found" });
     }
 
-    return c.json({ success: true, proxy: proxyPool.getById(id) });
+    return c.json({ success: true, proxy: proxyPool.getByIdMasked(id) });
   });
 
   // Remove proxy
@@ -125,7 +125,7 @@ export function createProxyRoutes(proxyPool: ProxyPool, accountPool: AccountPool
     const id = c.req.param("id");
     try {
       const health = await proxyPool.healthCheck(id);
-      const proxy = proxyPool.getById(id);
+      const proxy = proxyPool.getByIdMasked(id);
       return c.json({ success: true, proxy, health });
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err);
@@ -141,7 +141,7 @@ export function createProxyRoutes(proxyPool: ProxyPool, accountPool: AccountPool
       c.status(404);
       return c.json({ error: "Proxy not found" });
     }
-    return c.json({ success: true, proxy: proxyPool.getById(id) });
+    return c.json({ success: true, proxy: proxyPool.getByIdMasked(id) });
   });
 
   // Disable proxy
@@ -151,7 +151,7 @@ export function createProxyRoutes(proxyPool: ProxyPool, accountPool: AccountPool
       c.status(404);
       return c.json({ error: "Proxy not found" });
     }
-    return c.json({ success: true, proxy: proxyPool.getById(id) });
+    return c.json({ success: true, proxy: proxyPool.getByIdMasked(id) });
   });
 
   // Health check all (no route conflict — different path structure from /:id/*)
@@ -410,7 +410,9 @@ export function createProxyRoutes(proxyPool: ProxyPool, accountPool: AccountPool
         errors.push(`Invalid URL: ${url}`);
         continue;
       }
-      const name = typeof entry.name === "string" ? entry.name.trim() || url : url;
+      const name = typeof entry.name === "string"
+        ? entry.name.trim() || stripCredentials(url)
+        : stripCredentials(url);
       const id = proxyPool.add(name, url);
       added.push(id);
     }

@@ -118,6 +118,23 @@ describe("ProxyPool", () => {
       expect(pool.getAll()).toHaveLength(3);
     });
 
+    it("masks credentials in API-visible URLs and URL-like legacy names", () => {
+      const url = "http://user:secret@proxy.local:8080/path";
+      const id = pool.add(url, url);
+
+      expect(pool.getByIdMasked(id)).toMatchObject({
+        name: "http://***:***@proxy.local:8080/path",
+        url: "http://***:***@proxy.local:8080/path",
+      });
+      expect(pool.getAllMasked()[0].url).not.toContain("secret");
+      expect(pool.getById(id)).toMatchObject({ name: url, url });
+    });
+
+    it("fails closed for malformed legacy URLs without a scheme", () => {
+      const id = pool.add("Legacy", "user:secret@proxy.local:8080");
+      expect(pool.getByIdMasked(id)?.url).toBe("***:***@proxy.local:8080");
+    });
+
     it("getById returns entry or undefined", () => {
       const id = pool.add("Test", "http://test.local:8080");
       expect(pool.getById(id)).toBeDefined();

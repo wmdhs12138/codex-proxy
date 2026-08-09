@@ -130,13 +130,19 @@ export class ProxyPool {
     return Array.from(this.proxies.values());
   }
 
-  /** Returns all proxies with credentials masked in URLs. */
+  /** Returns all proxies with credentials masked in API-visible fields. */
   getAllMasked(): ProxyEntry[] {
-    return this.getAll().map((p) => ({ ...p, url: maskProxyUrl(p.url) }));
+    return this.getAll().map(maskProxyEntry);
   }
 
   getById(id: string): ProxyEntry | undefined {
     return this.proxies.get(id);
+  }
+
+  /** Returns one proxy with credentials masked for API responses and logs. */
+  getByIdMasked(id: string): ProxyEntry | undefined {
+    const proxy = this.proxies.get(id);
+    return proxy ? maskProxyEntry(proxy) : undefined;
   }
 
   enable(id: string): boolean {
@@ -478,14 +484,35 @@ export class ProxyPool {
 
 // ── Helpers ─────────────────────────────────────────────────────────
 
+function maskProxyEntry(proxy: ProxyEntry): ProxyEntry {
+  return {
+    ...proxy,
+    // Older imports could use the full URL as the display name. Mask URL-like
+    // names too so fixing the url field cannot leave a second credential leak.
+    name: proxy.name.includes("://") ? maskProxyUrl(proxy.name) : proxy.name,
+    url: maskProxyUrl(proxy.url),
+  };
+}
+
 function maskProxyUrl(url: string): string {
-  try {
-    const u = new URL(url);
-    if (u.password) u.password = "***";
-    return u.toString();
-  } catch (_err: unknown) {
-    return url;
-  }
+  const schemeEnd = url.indexOf("://");
+  // Persisted data can predate route validation. Treat the whole prefix as an
+  // authority when the scheme is missing so malformed legacy URLs fail closed
+  // instead of returning user:password verbatim.
+  const authorityStart = schemeEnd > 0 ? schemeEnd + 3 : 0;
+  const authorityEnd = findAuthorityEnd(url, authorityStart);
+  const at = url.lastIndexOf("@", authorityEnd - 1);
+  if (at <= authorityStart) return url;
+  const userInfo = url.slice(authorityStart, at);
+  const replacement = userInfo.includes(":") ? "***:***@" : "***@";
+  return url.slice(0, authorityStart) + replacement + url.slice(at + 1);
+}
+
+function findAuthorityEnd(url: string, start: number): number {
+  const candidates = ["/", "?", "#"]
+    .map((character) => url.indexOf(character, start))
+    .filter((index) => index >= 0);
+  return candidates.length > 0 ? Math.min(...candidates) : url.length;
 }
 
 function randomHex(bytes: number): string {

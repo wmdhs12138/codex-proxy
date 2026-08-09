@@ -239,6 +239,19 @@ describe("POST /api/proxies", () => {
     const body = await res.json() as { success: boolean; proxy: { name: string } };
     expect(body.proxy.name).toBe("My Proxy");
   });
+
+  it("masks username and password in proxy API responses", async () => {
+    const addRes = await app.request("/api/proxies", json({
+      name: "Credentials",
+      url: "http://user:secret@proxy.example.com:8080/path",
+    }));
+    const added = await addRes.json() as { proxy: { url: string } };
+    expect(added.proxy.url).toBe("http://***:***@proxy.example.com:8080/path");
+
+    const listRes = await app.request("/api/proxies");
+    const list = await listRes.json() as { proxies: Array<{ url: string }> };
+    expect(list.proxies[0].url).toBe("http://***:***@proxy.example.com:8080/path");
+  });
 });
 
 describe("PUT /api/proxies/:id", () => {
@@ -623,6 +636,24 @@ describe("proxy YAML export/import", () => {
 
     pool2.destroy();
     acctPool2.destroy();
+  });
+
+  it("does not copy credentials into the default imported display name", async () => {
+    const res = await app.request("/api/proxies/import", {
+      method: "POST",
+      headers: { "Content-Type": "text/yaml" },
+      body: "- url: http://user:secret@proxy.example.com:8080/path\n",
+    });
+    expect(res.status).toBe(200);
+
+    const listRes = await app.request("/api/proxies");
+    const body = await listRes.json() as {
+      proxies: Array<{ name: string; url: string }>;
+    };
+    expect(body.proxies[0]).toMatchObject({
+      name: "http://proxy.example.com:8080/path",
+      url: "http://***:***@proxy.example.com:8080/path",
+    });
   });
 
   it("rejects invalid YAML with 400", async () => {
