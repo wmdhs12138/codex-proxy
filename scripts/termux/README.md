@@ -68,6 +68,8 @@ CODEX_PROXY_SKIP_BUILD=1 CODEX_PROXY_SKIP_START=1 bash install-codex-proxy-termu
 codex-proxy start
 codex-proxy stop
 codex-proxy restart
+codex-proxy pause
+codex-proxy resume
 codex-proxy status
 codex-proxy logs
 codex-proxy attach
@@ -79,6 +81,8 @@ codex-proxy url
 
 `run.sh` 默认清除代理环境变量，避免本机 7890 代理造成代理回环或健康检查异常；确实需要让 Codex Proxy 进程继承代理时，设置 `CODEX_PROXY_KEEP_PROXY=1`。`start` 默认等待 HTTP 最多 15 秒；慢设备可通过 `CODEX_PROXY_HEALTH_TIMEOUT=30 codex-proxy start` 调整。
 
+`pause` 会停止服务并写入 `$CODEX_PROXY_CONFIG_DIR/paused` 标记；之后普通 `start` 与 Termux:Boot 都不会意外拉起服务。`resume` 只解除暂停，不会自动启动。服务日志会在每次启动前检查，默认达到 20 MiB 时轮转并保留 3 份；可用 `CODEX_PROXY_LOG_MAX_BYTES` 和 `CODEX_PROXY_LOG_KEEP_FILES` 调整。
+
 ## 部署更新与数据安全
 
 `codex-proxy update` 的流程是：
@@ -88,7 +92,7 @@ codex-proxy url
 3. 为旧 HEAD 创建 `refs/codex-proxy/rollback/<时间>-<提交>` 回滚引用，并只保留最近 10 个；
 4. 停止服务并明确 `reset --hard origin/termux-aarch64`，因此兼容维护者 rebase 后的 force-push；
 5. 重新安装依赖、编译 native 模块并构建项目；
-6. 构建成功才启动新版本；失败时尽力恢复旧 HEAD、重建并重新启动旧版本。
+6. 保留更新前的运行状态：原本在运行才重启，原本停止/暂停则构建后继续保持停止；失败时恢复旧 HEAD、重建并尽力恢复原运行状态。
 
 部署分支应只追踪远端发布结果，不要在里面保存未推送的源码提交。更新脚本不会执行 `git clean`，而且项目的 `data/` 已被忽略，因此不会删除 `data/local.yaml`、账号数据库或 API Key；重要数据仍建议定期备份。
 
