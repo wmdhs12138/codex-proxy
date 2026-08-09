@@ -139,6 +139,66 @@ describe("PersistentWs", () => {
     expect(text).toContain("event: response.completed");
   });
 
+  it("rejects nested response.failed errors before exposing the stream", async () => {
+    const { ws, persistent } = newPersistentWs();
+    persistent.tryAcquire();
+    const promise = persistent.send({
+      request: { type: "response.create", model: "m", instructions: "", input: [] },
+      signal: undefined,
+      onRateLimits: undefined,
+      reused: false,
+    });
+    await nextTick();
+    ws.pushMessage({ type: "response.created", response: { id: "resp_stale" } });
+    ws.pushMessage({
+      type: "response.failed",
+      response: {
+        id: "resp_stale",
+        status: "failed",
+        error: {
+          code: "previous_response_not_found",
+          message: "Previous response with id 'resp_stale' not found.",
+        },
+      },
+    });
+
+    await expect(promise).rejects.toMatchObject({ status: 400 });
+    expect(persistent.isBusy()).toBe(false);
+  });
+
+  it("keeps Codex metadata and response.queued buffered before a stale-prev failure", async () => {
+    const { ws, persistent } = newPersistentWs();
+    persistent.tryAcquire();
+    const promise = persistent.send({
+      request: { type: "response.create", model: "m", instructions: "", input: [] },
+      signal: undefined,
+      onRateLimits: undefined,
+      reused: true,
+    });
+    promise.catch(() => { /* asserted below */ });
+    await nextTick();
+
+    ws.pushMessage({
+      type: "codex.response.metadata",
+      headers: { "x-codex-safety-buffering-enabled": "true" },
+    });
+    ws.pushMessage({ type: "response.queued", response: { id: "resp_queued" } });
+    ws.pushMessage({
+      type: "response.failed",
+      response: {
+        id: "resp_queued",
+        status: "failed",
+        error: {
+          code: "previous_response_not_found",
+          message: "Previous response with id 'resp_stale' not found.",
+        },
+      },
+    });
+
+    await expect(promise).rejects.toMatchObject({ status: 400 });
+    expect(persistent.isBusy()).toBe(false);
+  });
+
   it("send rejects before resolving when the WS closes after only metadata", async () => {
     const { ws, persistent, onDead } = newPersistentWs();
     persistent.tryAcquire();

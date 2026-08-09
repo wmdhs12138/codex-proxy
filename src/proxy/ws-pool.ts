@@ -129,9 +129,14 @@ const ROTATABLE_ERROR_CODES: Readonly<Record<string, number>> = {
 function classifyWsErrorEvent(msg: Record<string, unknown>): { status: number; code: string } | null {
   const type = typeof msg.type === "string" ? msg.type : "";
   if (type !== "error" && type !== "response.failed") return null;
+  const responseObj = typeof msg.response === "object" && msg.response !== null
+    ? (msg.response as Record<string, unknown>)
+    : null;
   const errorObj = typeof msg.error === "object" && msg.error !== null
     ? (msg.error as Record<string, unknown>)
-    : null;
+    : typeof responseObj?.error === "object" && responseObj.error !== null
+      ? (responseObj.error as Record<string, unknown>)
+      : null;
   if (!errorObj) return null;
   const codeRaw =
     (typeof errorObj.code === "string" ? errorObj.code : null) ??
@@ -147,10 +152,13 @@ function isTerminalWsEvent(type: string): boolean {
 }
 
 function isEarlyMetadataWsEvent(type: string): boolean {
-  return type === "response.created" ||
-    type === "response.in_progress" ||
-    type === "response.metadata" ||
-    type === "codex.response.metadata";
+  // Keep pre-content lifecycle frames buffered so a following rotatable
+  // failure can still reject before the HTTP/SSE response is exposed.
+  return type === "codex.response.metadata"
+    || type === "response.metadata"
+    || type === "response.queued"
+    || type === "response.created"
+    || type === "response.in_progress";
 }
 
 function completedResponseId(msg: Record<string, unknown>, type: string): string | null {

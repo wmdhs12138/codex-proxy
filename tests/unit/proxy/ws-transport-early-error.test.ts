@@ -167,6 +167,60 @@ describe("createWebSocketResponse — early-stream error rejection", () => {
     },
   );
 
+  it("rejects when response.failed nests previous_response_not_found under response.error", async () => {
+    const promise = createWebSocketResponse("wss://test/ws", {}, BASE_REQUEST);
+    promise.catch(() => { /* asserted below */ });
+    const ws = await waitForOpen();
+
+    ws.emit("message", JSON.stringify({
+      type: "response.failed",
+      response: {
+        id: "resp_failed",
+        status: "failed",
+        error: {
+          code: "previous_response_not_found",
+          message: "Previous response with id 'resp_stale' not found.",
+        },
+      },
+    }));
+
+    await expect(promise).rejects.toMatchObject({
+      status: 400,
+      body: expect.stringContaining("previous_response_not_found"),
+    });
+  });
+
+  it("keeps Codex metadata and response.queued buffered before a stale-prev failure", async () => {
+    const promise = createWebSocketResponse("wss://test/ws", {}, BASE_REQUEST);
+    promise.catch(() => { /* asserted below */ });
+    const ws = await waitForOpen();
+
+    ws.emit("message", JSON.stringify({
+      type: "codex.response.metadata",
+      headers: { "x-codex-safety-buffering-enabled": "true" },
+    }));
+    ws.emit("message", JSON.stringify({
+      type: "response.queued",
+      response: { id: "resp_queued", status: "queued" },
+    }));
+    ws.emit("message", JSON.stringify({
+      type: "response.failed",
+      response: {
+        id: "resp_queued",
+        status: "failed",
+        error: {
+          code: "previous_response_not_found",
+          message: "Previous response with id 'resp_stale' not found.",
+        },
+      },
+    }));
+
+    await expect(promise).rejects.toMatchObject({
+      status: 400,
+      body: expect.stringContaining("previous_response_not_found"),
+    });
+  });
+
   it("rejects with CodexApiError(402) when first frame is response.failed quota_exhausted", async () => {
     const promise = createWebSocketResponse("wss://test/ws", {}, BASE_REQUEST);
     promise.catch(() => { /* asserted below */ });
