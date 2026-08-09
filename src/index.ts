@@ -222,7 +222,7 @@ export async function startServer(options?: StartOptions): Promise<ServerHandle>
     const user = accountPool.getUserInfo();
     console.log(`  User: ${user?.email ?? "unknown"}`);
     console.log(`  Plan: ${user?.planType ?? "unknown"}`);
-    console.log(`  Key:  ${config.server.proxy_api_key ?? accountPool.getProxyApiKey()}`);
+    console.log("  Key:  configured (hidden)");
     console.log(`  Pool: ${poolSummary.active} active / ${poolSummary.total} total accounts`);
   } else {
     console.log(`  Open http://${displayHost}:${port} to login`);
